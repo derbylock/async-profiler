@@ -37,6 +37,7 @@ const size_t EXTRA_BUF_SIZE = 512;
 // where arg is one of the following options:
 //     start         - start profiling
 //     stop          - stop profiling
+//     resume        - resume profiling without resetting collected data
 //     status        - print profiling status (inactive / running for X seconds)
 //     list          - show the list of available profiling events
 //     version       - display the agent version
@@ -89,6 +90,8 @@ Error Arguments::parse(const char* args) {
             _action = ACTION_START;
         } else if (strcmp(arg, "stop") == 0) {
             _action = ACTION_STOP;
+        } else if (strcmp(arg, "resume") == 0) {
+            _action = ACTION_RESUME;
         } else if (strcmp(arg, "status") == 0) {
             _action = ACTION_STATUS;
         } else if (strcmp(arg, "list") == 0) {
@@ -252,7 +255,7 @@ Arguments::~Arguments() {
     free(_buf);
 }
 
-void Arguments::assign(Arguments& other) {
+void Arguments::save(Arguments& other) {
     free(_buf);
     *this = other;
     other._buf = NULL;

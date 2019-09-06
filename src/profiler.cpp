@@ -568,50 +568,61 @@ Error Profiler::start(Arguments& args) {
         return Error("Could not find AsyncGetCallTrace function");
     }
 
-    _total_samples = 0;
-    _total_counter = 0;
-    memset(_failures, 0, sizeof(_failures));
-    memset(_hashes, 0, sizeof(_hashes));
-    memset(_traces, 0, sizeof(_traces));
-    memset(_methods, 0, sizeof(_methods));
-
-    // Index 0 denotes special call trace with no frames
-    _hashes[0] = (u64)-1;
-
-    // Reset frames
-    if (_frame_buffer_size != args._framebuf) {
-        _frame_buffer_size = args._framebuf;
-        free(_frame_buffer);
-        _frame_buffer = (ASGCT_CallFrame*)malloc(_frame_buffer_size * sizeof(ASGCT_CallFrame));
-        if (_frame_buffer == NULL) {
-            _frame_buffer_size = 0;
-            return Error("Not enough memory to allocate frame buffer (try smaller framebuf)");
+    bool resume = (&args == &_saved_args);
+    if (resume) {
+        if (_native_lib_count == 0) {
+            return Error("Profiler has never started");
         }
-    }
-    _frame_buffer_index = 0;
-    _frame_buffer_overflow = false;
+    } else {
+        // Reset counters
+        _total_samples = 0;
+        _total_counter = 0;
+        memset(_failures, 0, sizeof(_failures));
+        memset(_hashes, 0, sizeof(_hashes));
+        memset(_traces, 0, sizeof(_traces));
+        memset(_methods, 0, sizeof(_methods));
 
-    // Reset calltrace buffers
-    if (_max_stack_depth != args._jstackdepth) {
-        _max_stack_depth = args._jstackdepth;
-        size_t buffer_size = (_max_stack_depth + MAX_NATIVE_FRAMES + RESERVED_FRAMES) * sizeof(CallTraceBuffer);
+        // Index 0 denotes special call trace with no frames
+        _hashes[0] = (u64)-1;
 
-        for (int i = 0; i < CONCURRENCY_LEVEL; i++) {
-            free(_calltrace_buffer[i]);
-            _calltrace_buffer[i] = (CallTraceBuffer*)malloc(buffer_size);
-            if (_calltrace_buffer[i] == NULL) {
-                _max_stack_depth = 0;
-                return Error("Not enough memory to allocate stack trace buffers (try smaller jstackdepth)");
+        // Reset frames
+        if (_frame_buffer_size != args._framebuf) {
+            _frame_buffer_size = args._framebuf;
+            free(_frame_buffer);
+            _frame_buffer = (ASGCT_CallFrame*)malloc(_frame_buffer_size * sizeof(ASGCT_CallFrame));
+            if (_frame_buffer == NULL) {
+                _frame_buffer_size = 0;
+                return Error("Not enough memory to allocate frame buffer (try smaller framebuf)");
             }
         }
-    }
+        _frame_buffer_index = 0;
+        _frame_buffer_overflow = false;
 
-    // Reset thread names
-    {
-        MutexLocker ml(_thread_names_lock);
-        _thread_names.clear();
+        // Reset calltrace buffers
+        if (_max_stack_depth != args._jstackdepth) {
+            _max_stack_depth = args._jstackdepth;
+            size_t buffer_size = (_max_stack_depth + MAX_NATIVE_FRAMES + RESERVED_FRAMES) * sizeof(CallTraceBuffer);
+
+            for (int i = 0; i < CONCURRENCY_LEVEL; i++) {
+                free(_calltrace_buffer[i]);
+                _calltrace_buffer[i] = (CallTraceBuffer*)malloc(buffer_size);
+                if (_calltrace_buffer[i] == NULL) {
+                    _max_stack_depth = 0;
+                    return Error("Not enough memory to allocate stack trace buffers (try smaller jstackdepth)");
+                }
+            }
+        }
+
+        // Reset thread names
+        {
+            MutexLocker ml(_thread_names_lock);
+            _thread_names.clear();
+        }
+        _threads = args._threads && args._output != OUTPUT_JFR;
+
+        // Save arguments in case of shutdown
+        _saved_args.save(args);
     }
-    _threads = args._threads && args._output != OUTPUT_JFR;
 
     Symbols::parseLibraries(_native_libs, _native_lib_count, MAX_NATIVE_LIBS);
     NativeCodeCache* libjvm = jvmLibrary();
@@ -667,6 +678,10 @@ Error Profiler::stop() {
 
     _state = IDLE;
     return Error::OK;
+}
+
+Error Profiler::resume() {
+    return start(_saved_args);
 }
 
 void Profiler::switchThreadEvents(jvmtiEventMode mode) {
@@ -850,6 +865,15 @@ void Profiler::runInternal(Arguments& args, std::ostream& out) {
             }
             break;
         }
+        case ACTION_RESUME: {
+            Error error = resume();
+            if (error) {
+                out << error.message() << std::endl;
+            } else {
+                out << "Resumed [" << _saved_args._event << "] profiling" << std::endl;
+            }
+            break;
+        }
         case ACTION_STATUS: {
             MutexLocker ml(_state_lock);
             if (_state == RUNNING) {
@@ -921,13 +945,13 @@ void Profiler::run(Arguments& args) {
     }
 }
 
-void Profiler::shutdown(Arguments& args) {
+void Profiler::shutdown() {
     MutexLocker ml(_state_lock);
 
     // The last chance to dump profile before VM terminates
-    if (_state == RUNNING && args._output != OUTPUT_NONE) {
-        args._action = ACTION_DUMP;
-        run(args);
+    if (_state == RUNNING && _saved_args._output != OUTPUT_NONE) {
+        _saved_args._action = ACTION_DUMP;
+        run(_saved_args);
     }
 
     _state = TERMINATED;

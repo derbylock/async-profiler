@@ -5,6 +5,7 @@ usage() {
     echo "Actions:"
     echo "  start             start profiling and return immediately"
     echo "  stop              stop profiling"
+    echo "  resume            resume profiling without resetting collected data"
     echo "  status            print profiling status"
     echo "  list              list profiling events supported by the target JVM"
     echo "  collect           collect profile for the specified period of time"
@@ -110,7 +111,7 @@ while [[ $# -gt 0 ]]; do
         -h|"-?")
             usage
             ;;
-        start|stop|status|list|collect)
+        start|stop|resume|status|list|collect)
             ACTION="$1"
             ;;
         -v|--version)
@@ -214,6 +215,9 @@ case $ACTION in
         ;;
     stop)
         jattach "stop,file=$FILE,$OUTPUT$FORMAT"
+        ;;
+    resume)
+        jattach "resume,file=$FILE"
         ;;
     status)
         jattach "status,file=$FILE"

@@ -34,6 +34,7 @@ enum Action {
     ACTION_NONE,
     ACTION_START,
     ACTION_STOP,
+    ACTION_RESUME,
     ACTION_STATUS,
     ACTION_LIST,
     ACTION_VERSION,
@@ -141,7 +142,7 @@ class Arguments {
 
     ~Arguments();
 
-    void assign(Arguments& other);
+    void save(Arguments& other);
 
     Error parse(const char* args);
 };

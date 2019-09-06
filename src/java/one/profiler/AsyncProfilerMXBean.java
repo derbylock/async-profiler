@@ -30,6 +30,7 @@ package one.profiler;
 public interface AsyncProfilerMXBean {
     void start(String event, long interval) throws IllegalStateException;
     void stop() throws IllegalStateException;
+    void resume() throws IllegalStateException;
 
     long getSamples();
     String getVersion();

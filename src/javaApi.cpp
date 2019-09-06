@@ -52,6 +52,15 @@ Java_one_profiler_AsyncProfiler_stop0(JNIEnv* env, jobject unused) {
     }
 }
 
+extern "C" JNIEXPORT void JNICALL
+Java_one_profiler_AsyncProfiler_resume0(JNIEnv* env, jobject unused) {
+    Error error = Profiler::_instance.resume();
+
+    if (error) {
+        throw_new(env, "java/lang/IllegalStateException", error.message());
+    }
+}
+
 extern "C" JNIEXPORT jlong JNICALL
 Java_one_profiler_AsyncProfiler_getSamples(JNIEnv* env, jobject unused) {
     return (jlong)Profiler::_instance.total_samples();

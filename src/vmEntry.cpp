@@ -119,7 +119,7 @@ void JNICALL VM::VMInit(jvmtiEnv* jvmti, JNIEnv* jni, jthread thread) {
 }
 
 void JNICALL VM::VMDeath(jvmtiEnv* jvmti, JNIEnv* jni) {
-    Profiler::_instance.shutdown(_agent_args);
+    Profiler::_instance.shutdown();
 }
 
 
@@ -147,10 +147,6 @@ Agent_OnAttach(JavaVM* vm, char* options, void* reserved) {
         return -1;
     }
 
-    // Save the arguments in case of shutdown
-    if (args._action == ACTION_START) {
-        _agent_args.assign(args);
-    }
     Profiler::_instance.run(args);
 
     return 0;

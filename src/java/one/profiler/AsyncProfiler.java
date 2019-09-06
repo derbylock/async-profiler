@@ -73,6 +73,16 @@ public class AsyncProfiler implements AsyncProfilerMXBean {
     }
 
     /**
+     * Resume profiling. All the profiling arguments are inherited from the previous start
+     *
+     * @throws IllegalStateException If profiler is already running or has never started
+     */
+    @Override
+    public void resume() throws IllegalStateException {
+        resume0();
+    }
+
+    /**
      * Get the number of samples collected during the profiling session
      *
      * @return Number of samples
@@ -139,6 +149,7 @@ public class AsyncProfiler implements AsyncProfilerMXBean {
 
     private native void start0(String event, long interval) throws IllegalStateException;
     private native void stop0() throws IllegalStateException;
+    private native void resume0() throws IllegalStateException;
     private native String execute0(String command) throws IllegalArgumentException, java.io.IOException;
     private native String dumpCollapsed0(int counter);
     private native String dumpTraces0(int maxTraces);

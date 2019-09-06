@@ -95,6 +95,7 @@ class Profiler {
   private:
     Mutex _state_lock;
     State _state;
+    Arguments _saved_args;
     Mutex _thread_names_lock;
     std::map<int, std::string> _thread_names;
     FlightRecorder _jfr;
@@ -190,9 +191,10 @@ class Profiler {
 
     void run(Arguments& args);
     void runInternal(Arguments& args, std::ostream& out);
-    void shutdown(Arguments& args);
+    void shutdown();
     Error start(Arguments& args);
     Error stop();
+    Error resume();
     void switchThreadEvents(jvmtiEventMode mode);
     void dumpSummary(std::ostream& out);
     void dumpCollapsed(std::ostream& out, Arguments& args);
