@@ -794,29 +794,35 @@ void Profiler::dumpTraces(std::ostream& out, Arguments& args) {
     double percent = 100.0 / _total_counter;
     char buf[1024];
 
-    qsort(_traces, MAX_CALLTRACES, sizeof(CallTraceSample), CallTraceSample::comparator);
+    CallTraceSample** traces = new CallTraceSample*[MAX_CALLTRACES];
+    for (int i = 0; i < MAX_CALLTRACES; i++) {
+        traces[i] = &_traces[i];
+    }
+    qsort(traces, MAX_CALLTRACES, sizeof(CallTraceSample*), CallTraceSample::comparator);
 
     int max_traces = args._dump_traces < MAX_CALLTRACES ? args._dump_traces : MAX_CALLTRACES;
     for (int i = 0; i < max_traces; i++) {
-        CallTraceSample& trace = _traces[i];
-        if (trace._samples == 0) break;
+        CallTraceSample* trace = traces[i];
+        if (trace->_samples == 0) break;
 
         snprintf(buf, sizeof(buf), "--- %lld %s (%.2f%%), %lld sample%s\n",
-                 trace._counter, _engine->units(), trace._counter * percent,
-                 trace._samples, trace._samples == 1 ? "" : "s");
+                 trace->_counter, _engine->units(), trace->_counter * percent,
+                 trace->_samples, trace->_samples == 1 ? "" : "s");
         out << buf;
 
-        if (trace._num_frames == 0) {
+        if (trace->_num_frames == 0) {
             out << "  [ 0] [frame_buffer_overflow]\n";
         }
 
-        for (int j = 0; j < trace._num_frames; j++) {
-            const char* frame_name = fn.name(_frame_buffer[trace._start_frame + j]);
+        for (int j = 0; j < trace->_num_frames; j++) {
+            const char* frame_name = fn.name(_frame_buffer[trace->_start_frame + j]);
             snprintf(buf, sizeof(buf), "  [%2d] %s\n", j, frame_name);
             out << buf;
         }
         out << "\n";
     }
+
+    delete[] traces;
 }
 
 void Profiler::dumpFlat(std::ostream& out, Arguments& args) {
@@ -827,7 +833,11 @@ void Profiler::dumpFlat(std::ostream& out, Arguments& args) {
     double percent = 100.0 / _total_counter;
     char buf[1024];
 
-    qsort(_methods, MAX_CALLTRACES, sizeof(MethodSample), MethodSample::comparator);
+    MethodSample** methods = new MethodSample*[MAX_CALLTRACES];
+    for (int i = 0; i < MAX_CALLTRACES; i++) {
+        methods[i] = &_methods[i];
+    }
+    qsort(methods, MAX_CALLTRACES, sizeof(MethodSample*), MethodSample::comparator);
 
     snprintf(buf, sizeof(buf), "%12s  percent  samples  top\n"
                                "  ----------  -------  -------  ---\n", _engine->units());
@@ -835,14 +845,16 @@ void Profiler::dumpFlat(std::ostream& out, Arguments& args) {
 
     int max_methods = args._dump_flat < MAX_CALLTRACES ? args._dump_flat : MAX_CALLTRACES;
     for (int i = 0; i < max_methods; i++) {
-        MethodSample& method = _methods[i];
-        if (method._samples == 0) break;
+        MethodSample* method = methods[i];
+        if (method->_samples == 0) break;
 
-        const char* frame_name = fn.name(method._method);
+        const char* frame_name = fn.name(method->_method);
         snprintf(buf, sizeof(buf), "%12lld  %6.2f%%  %7lld  %s\n",
-                 method._counter, method._counter * percent, method._samples, frame_name);
+                 method->_counter, method->_counter * percent, method->_samples, frame_name);
         out << buf;
     }
+
+    delete[] methods;
 }
 
 void Profiler::runInternal(Arguments& args, std::ostream& out) {
