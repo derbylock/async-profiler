@@ -16,6 +16,8 @@
 
 #ifdef __linux__
 
+#include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
@@ -165,7 +167,9 @@ bool ElfParser::parseFile(NativeCodeCache* cc, const char* base, const char* fil
     void* addr = mmap(NULL, length, PROT_READ, MAP_PRIVATE, fd, 0);
     close(fd);
 
-    if (addr != MAP_FAILED) {
+    if (addr == MAP_FAILED) {
+        fprintf(stderr, "Failed to parse %s of length %d: %s\n", file_name, (int)length, strerror(errno));
+    } else {
         ElfParser elf(cc, base, addr, file_name);
         elf.loadSymbols(use_debug);
         munmap(addr, length);
